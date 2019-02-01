@@ -60,10 +60,29 @@ def safe_request(url, body=None):
         # Ignore responses with no json data in body
         pass
 
+# Extra safe_request where you can pass in the max attempts
+def safe_request_limit(url, maxtry):
+    try:
+        attempts = 0
+        while True:
+            r = requests.get(url, headers=headers)
+            data = r.json()
+            if 'httpStatusCode' in data and data['httpStatusCode'] in ['NOT_FOUND', 'BAD_REQUEST', 'FORBIDDEN']:
+                attempts += 1
+                printFlush(data['message'])
+                if attempts >= maxtry:
+                    sys.exit("Unable to get data, killing self")
+                time.sleep(CHECKIN_INTERVAL_SECONDS)
+                continue
+            return data
+    except ValueError:
+        # Ignore responses with no json data in body
+        pass
+
 def lookup_existing_reservation(number, first, last):
     # Find our existing record
     url = "{}mobile-misc/v1/mobile-misc/page/view-reservation/{}?first-name={}&last-name={}".format(BASE_URL, number, first, last)
-    data = safe_request(url)
+    data = safe_request_limit(url, 1)
     return data['viewReservationViewPage']
 
 def get_checkin_data(number, first, last):
