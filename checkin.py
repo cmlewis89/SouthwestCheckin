@@ -50,7 +50,7 @@ def safe_request(url, body=None):
             data = r.json()
             if 'httpStatusCode' in data and data['httpStatusCode'] in ['NOT_FOUND', 'BAD_REQUEST', 'FORBIDDEN']:
                 attempts += 1
-                print(data['message'])
+                printFlush(data['message'])
                 if attempts > MAX_ATTEMPTS:
                     sys.exit("Unable to get data, killing self")
                 time.sleep(CHECKIN_INTERVAL_SECONDS)
@@ -75,7 +75,7 @@ def checkin(number, first, last):
     data = get_checkin_data(number, first, last)
     info_needed = data['_links']['checkIn']
     url = "{}mobile-air-operations{}".format(BASE_URL, info_needed['href'])
-    print("Attempting check-in...")
+    printFlush("Attempting check-in...")
     return safe_request(url, info_needed['body'])['checkInConfirmationPage']
 
 def send_notification(checkindata, emailaddr=None, mobilenum=None):
@@ -90,7 +90,7 @@ def send_notification(checkindata, emailaddr=None, mobilenum=None):
     if mobilenum:
         info_needed['body']['mediaType'] = 'SMS'
         info_needed['body']['phoneNumber'] = mobilenum
-    print("Attempting to send boarding pass...")
+    printFlush("Attempting to send boarding pass...")
     safe_request(url, info_needed['body'])
 
 def schedule_checkin(flight_time, number, first, last, email, mobile):
@@ -103,12 +103,12 @@ def schedule_checkin(flight_time, number, first, last, email, mobile):
         # pretty print our wait time
         m, s = divmod(delta, 60)
         h, m = divmod(m, 60)
-        print("Too early to check in.  Waiting {} hours, {} minutes, {} seconds".format(trunc(h), trunc(m), s))
+        printFlush("Too early to check in.  Waiting {} hours, {} minutes, {} seconds".format(trunc(h), trunc(m), s))
         time.sleep(delta)
     data = checkin(number, first, last)
     for flight in data['flights']:
         for doc in flight['passengers']:
-            print("{} got {}{}!".format(doc['name'], doc['boardingGroup'], doc['boardingPosition']))
+            printFlush("{} got {}{}!".format(doc['name'], doc['boardingGroup'], doc['boardingPosition']))
     if email:
         send_notification(data, emailaddr=email)
     elif mobile:
@@ -138,8 +138,12 @@ def auto_checkin(reservation_number, first_name, last_name, email=None, mobile=N
         date = airport_tz.localize(datetime.strptime(takeoff, '%Y-%m-%d %H:%M'))
         if date > now:
             # found a flight for checkin!
-            print("Flight information found, departing {} at {}".format(airport, date.strftime('%b %d %I:%M%p')))
+            printFlush("Flight information found, departing {} at {}".format(airport, date.strftime('%b %d %I:%M%p')))
             schedule_checkin(date, reservation_number, first_name, last_name, email, mobile)
+
+def printFlush(output):
+    print(output)
+    sys.stdout.flush()
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='Southwest Checkin 0.2')
